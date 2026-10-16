@@ -54,31 +54,32 @@ PhonePilot is a unified platform for creating, executing, scheduling, monitoring
 - Android phone (Android 8.0+, no root required)
 - Windows PC
 - [Termux](https://f-droid.org/en/packages/com.termux/) installed from **F-Droid** (not Google Play)
-- [Termux:Boot](https://f-droid.org/en/packages/com.termux.boot/) from F-Droid
-- [Termux:API](https://f-droid.org/en/packages/com.termux.api/) from F-Droid
 - [Tailscale](https://tailscale.com/) on both PC and phone (free account)
 
 ### Step 1: Set Up the Backend (on your phone in Termux)
 
-Copy or clone the **whole project** onto your phone so both `termux/setup.sh`
+Copy or clone the **whole project** onto your phone so `termux/phonepilot.sh`
 and `backend/` are present. In Termux, change to the project directory and run:
 
 ```bash
-bash termux/setup.sh
-
-# Start PhonePilot
-bash ~/phonepilot/start.sh
-
-# Verify it's running
-curl http://localhost:8265/health
+bash termux/phonepilot.sh
 ```
 
-Setup copies the project's `backend/` into `~/phonepilot/backend/` and creates
-the start script at `~/phonepilot/start.sh`. SSH is optional; if OpenSSH is
-unavailable, the backend can still run and be reached over the network.
-On the first Termux setup, pip may need to compile `pydantic-core` with Rust.
-This can take a while on a phone; keep Termux open and wait for the build output
-to finish. If the command fails, rerun setup after fixing the pip/Rust error.
+This single command installs the required Termux packages, copies the backend
+without overwriting its private `.env` or database, installs Python dependencies,
+and starts the server in the foreground. The first install may compile
+`pydantic-core` with Rust; keep Termux open and wait for the visible build output.
+Press **Ctrl+C** to stop the foreground server. For background operation, use
+`bash termux/phonepilot.sh start`; check it with `status`, stop it with `stop`,
+and view logs with `logs`. Repeat starts reuse installed dependencies; run
+`install` to force a dependency refresh. For example:
+
+```bash
+bash ~/phonepilot/phonepilot.sh status
+```
+
+The backend API key is printed once during initial setup; save it securely.
+SSH and Termux:Boot are optional and are not required to run the backend.
 
 ### Step 2: Set Up the PC Dashboard (on your Windows PC)
 

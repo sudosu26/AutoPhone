@@ -20,15 +20,14 @@ PhonePilot uses multiple strategies to maximize reliability within these constra
 **How it works:**
 ```
 Device boots → Android starts → Termux:Boot triggers → 
-phonepilot-start.sh runs → SSH starts → Backend starts
+configured boot script runs `bash ~/phonepilot/phonepilot.sh start`
 ```
 
 **Requirements:**
 - Termux:Boot installed from F-Droid
 - Opened at least once after installation
-- Boot script at `~/.termux/boot/phonepilot-start.sh`
-- Script is executable
-- `termux.properties` has `allow-external-apps = true`
+- A boot script in `~/.termux/boot/` that invokes
+  `bash ~/phonepilot/phonepilot.sh start`
 
 **Limitations:**
 - Script runs in Termux session (Termux must not be disabled)
@@ -95,10 +94,8 @@ Timeline:
   15s  - BOOT_COMPLETED broadcast
          → PhonePilot app BootReceiver fires
          → WorkManager HealthCheckWorker enqueued
-  20s  - Termux:Boot fires
-         → phonepilot-start.sh executes
-         → sshd starts
-         → 10s network wait
+  20s  - Termux:Boot may fire if configured
+         → configured boot script starts PhonePilot
   30s  - Backend starts
          → Database recovery runs
          → Interrupted tasks marked as failed
@@ -123,7 +120,7 @@ Timeline:
 1. WorkManager detects backend is unreachable (next health check)
 2. Notification shown: "PhonePilot backend is offline"
 3. User opens Termux → Process restarts
-4. Run `bash ~/phonepilot/start.sh`
+4. Run `bash ~/phonepilot/phonepilot.sh start`
 
 **Prevention:**
 ```bash
@@ -174,21 +171,21 @@ termux-wake-lock
 **Recovery:**
 ```bash
 # Check what happened
-tail -50 ~/phonepilot/logs/phonepilot.log
+bash ~/phonepilot/phonepilot.sh logs
 
 # Clean up and restart
-bash ~/phonepilot/stop.sh
-bash ~/phonepilot/start.sh
+bash ~/phonepilot/phonepilot.sh stop
+bash ~/phonepilot/phonepilot.sh start
 ```
 
 **Automatic recovery:**
-- Termux:Boot will restart on next reboot
+- Termux:Boot can restart on next reboot if configured separately
 - Consider adding a watchdog cron job:
 
 ```bash
 # Add to Termux crontab (if crond is available)
 # Check every 5 minutes, restart if down
-*/5 * * * * bash ~/phonepilot/healthcheck.sh || bash ~/phonepilot/start.sh
+*/5 * * * * bash ~/phonepilot/phonepilot.sh start
 ```
 
 ## Preventive Measures
@@ -227,9 +224,9 @@ Create a simple watchdog that restarts the backend if it dies:
 # Run in a separate Termux session: bash ~/phonepilot/watchdog.sh
 
 while true; do
-    if ! bash ~/phonepilot/healthcheck.sh > /dev/null 2>&1; then
+    if ! bash ~/phonepilot/phonepilot.sh status > /dev/null 2>&1; then
         echo "[$(date -Iseconds)] Backend is down. Restarting..."
-        bash ~/phonepilot/start.sh
+        bash ~/phonepilot/phonepilot.sh start
         sleep 30  # Wait for startup
     fi
     sleep 300  # Check every 5 minutes

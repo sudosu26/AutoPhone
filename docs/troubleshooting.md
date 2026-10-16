@@ -6,10 +6,10 @@ Run this checklist when something isn't working:
 
 ```bash
 # On your phone (Termux)
-bash ~/phonepilot/status.sh
+bash ~/phonepilot/phonepilot.sh status
 ```
 
-This checks: backend process, API health, SSH, network, battery, and recent logs.
+This checks whether the backend process and API health endpoint are responding.
 
 ---
 
@@ -17,30 +17,36 @@ This checks: backend process, API health, SSH, network, battery, and recent logs
 
 ### 1. Backend Won't Start
 
-**Symptom:** `bash ~/phonepilot/start.sh` fails or the process dies immediately.
+**Symptom:** `bash ~/phonepilot/phonepilot.sh start` fails or the process dies immediately.
 
 **Check:**
 ```bash
-# View error logs
-tail -50 ~/phonepilot/logs/phonepilot.log
+# View the backend log
+bash ~/phonepilot/phonepilot.sh logs
 
 # Check if port is already in use
 ss -tlnp | grep 8265
 
-# Try running directly to see errors
-source ~/phonepilot/.venv/bin/activate
-cd ~/phonepilot/backend
-python run.py
+# Run in the foreground to see errors directly
+bash ~/phonepilot/phonepilot.sh run
 ```
 
 **Common causes:**
 - Port 8265 already in use → Kill the old process or change the port in `.env`
-- Missing dependencies → `pip install -r requirements.txt`
+- Missing dependencies → `bash ~/phonepilot/phonepilot.sh install`
 - Invalid `.env` file → Check syntax, regenerate if needed
 - Database locked → Remove the `.db-wal` and `.db-shm` files, restart
 - Python version mismatch → Ensure Python 3.10+ is installed
 
-### 2. Can't Connect from PC
+### 2. Termux Setup Appears Stuck Building Dependencies
+
+The first install may compile `pydantic-core` for Android using Rust; this can
+take several minutes. The all-in-one runner limits Cargo to one build job to
+reduce memory pressure and displays pip/build output. Keep Termux open and wait
+for the build to complete. If it exits with an error, rerun
+`bash ~/phonepilot/phonepilot.sh install` and capture the final error lines.
+
+### 3. Can't Connect from PC
 
 **Symptom:** Dashboard shows "Offline" or "Connection refused."
 
@@ -57,13 +63,13 @@ curl http://<phone-tailscale-ip>:8265/health
 ```
 
 **Common causes:**
-- Backend not running → Run `bash ~/phonepilot/start.sh` on phone
+- Backend not running → Run `bash ~/phonepilot/phonepilot.sh start` on phone
 - Wrong IP address → Check with `ip addr show wlan0` or Tailscale app
 - Firewall blocking → Android shouldn't block this, but check PC firewall
 - Different network → Use Tailscale for cross-network access
 - CORS error → Add your PC's URL to `PHONEPILOT_ALLOWED_ORIGINS` in `.env`
 
-### 3. Authentication Fails (HTTP 401)
+### 4. Authentication Fails (HTTP 401)
 
 **Symptom:** API returns "Unauthorized" even with API key.
 
@@ -89,7 +95,7 @@ print(f'Update PHONEPILOT_API_KEY in your .env file')
 - Key was regenerated → Update in dashboard Settings
 - Whitespace in key → Copy carefully
 
-### 4. Tasks Not Executing
+### 5. Tasks Not Executing
 
 **Symptom:** Tasks are created but never run.
 
@@ -109,7 +115,7 @@ curl -H "Authorization: Bearer $API_KEY" http://localhost:8265/api/v1/tasks
 - Shell command not in allowlist → Only approved commands are permitted
 - Task timed out → Check timeout settings
 
-### 5. SSH Connection Issues
+### 6. SSH Connection Issues
 
 **Symptom:** Can't SSH into phone from PC.
 
@@ -139,7 +145,7 @@ ssh -v -p 8022 user@<phone-ip>
 - Key mismatch → Check `~/.ssh/authorized_keys`
 - Termux session closed → SSH needs Termux running (use Termux:Boot)
 
-### 6. Backend Stops After Closing Termux
+### 7. Backend Stops After Closing Termux
 
 **Symptom:** PhonePilot stops when you swipe away Termux.
 
@@ -147,7 +153,7 @@ ssh -v -p 8022 user@<phone-ip>
 1. **Acquire wakelock in Termux:**
    ```bash
    termux-wake-lock
-   bash ~/phonepilot/start.sh
+   bash ~/phonepilot/phonepilot.sh start
    ```
 
 2. **Use Termux notification:**
@@ -161,31 +167,16 @@ ssh -v -p 8022 user@<phone-ip>
    - Minimize instead of swiping away
    - Lock Termux in recent apps (long-press → lock icon)
 
-### 7. Backend Doesn't Start After Reboot
+### 8. Backend Doesn't Start After Reboot
 
 **Symptom:** Phone reboots and PhonePilot doesn't come back.
 
-**Check:**
-```bash
-# Is Termux:Boot installed?
-ls ~/.termux/boot/
+Automatic startup is optional and is not configured by the all-in-one runner.
+To start manually after reboot, run `bash ~/phonepilot/phonepilot.sh start`.
+For auto-start, install Termux:Boot and configure a boot script to invoke that
+same command.
 
-# Is the boot script present?
-cat ~/.termux/boot/phonepilot-start.sh
-
-# Is the script executable?
-ls -la ~/.termux/boot/phonepilot-start.sh
-```
-
-**Requirements for auto-start:**
-1. Install **Termux:Boot** from F-Droid
-2. Open Termux:Boot at least once after install
-3. Boot script must be in `~/.termux/boot/`
-4. Script must be executable (`chmod 700`)
-5. `termux.properties` must have `allow-external-apps = true`
-6. Termux must not be battery-optimized
-
-### 8. Tailscale Not Connected
+### 9. Tailscale Not Connected
 
 **Symptom:** Can't reach phone via Tailscale IP.
 
@@ -211,7 +202,7 @@ tailscale status
 - Mobile data → Tailscale works on mobile data but may be slower
 - Always-on VPN not enabled → Enable in Android VPN settings
 
-### 9. Dashboard Shows Stale Data
+### 10. Dashboard Shows Stale Data
 
 **Symptom:** Dashboard doesn't update or shows old information.
 
@@ -222,7 +213,7 @@ tailscale status
 - Clear browser cache/localStorage
 - Check browser console for errors (`F12`)
 
-### 10. Database Corruption
+### 11. Database Corruption
 
 **Symptom:** Errors about SQLite, "database is locked", or "malformed."
 
@@ -231,7 +222,7 @@ tailscale status
 cd ~/phonepilot
 
 # Stop backend
-bash stop.sh
+bash phonepilot.sh stop
 
 # Check database integrity
 sqlite3 phonepilot.db "PRAGMA integrity_check;"
@@ -241,7 +232,7 @@ cp phonepilot.db phonepilot.db.backup
 rm phonepilot.db
 
 # Restart — database will be recreated
-bash start.sh
+bash phonepilot.sh start
 ```
 
 > **Warning:** Recreating the database loses all task history and configurations. Saved tasks will need to be recreated.
@@ -253,18 +244,13 @@ bash start.sh
 ### Backend logs
 ```bash
 # Live log follow
-tail -f ~/phonepilot/logs/phonepilot.log
+bash ~/phonepilot/phonepilot.sh logs
 
 # Last 100 lines
 tail -100 ~/phonepilot/logs/phonepilot.log
 
 # Search for errors
 grep -i error ~/phonepilot/logs/phonepilot.log | tail -20
-```
-
-### Boot logs
-```bash
-cat ~/phonepilot/logs/boot.log
 ```
 
 ### Android system logs (for the native app)
@@ -283,8 +269,8 @@ adb logcat -s AndroidRuntime:E
 If all else fails, here's how to do a clean reset:
 
 ```bash
-# Stop everything
-bash ~/phonepilot/stop.sh
+# Stop the backend
+bash ~/phonepilot/phonepilot.sh stop
 
 # Backup important data
 cp ~/phonepilot/.env ~/phonepilot/.env.backup
@@ -293,17 +279,14 @@ cp ~/phonepilot/.env ~/phonepilot/.env.backup
 rm -f ~/phonepilot/phonepilot.db*
 
 # Reinstall dependencies
-source ~/phonepilot/.venv/bin/activate
-pip install --force-reinstall -r ~/phonepilot/backend/requirements.txt
+bash ~/phonepilot/phonepilot.sh install
 
-# Restart
-deactivate
-bash ~/phonepilot/start.sh
+# Start backend
+bash ~/phonepilot/phonepilot.sh start
 ```
 
 For a complete reinstall:
 ```bash
-# Remove everything except .env
-rm -rf ~/phonepilot/.venv ~/phonepilot/logs ~/phonepilot/phonepilot.db*
-bash ~/phonepilot/backend/../termux/setup.sh
+# Reinstall and start from the project copy
+bash /path/to/AutoPhone/termux/phonepilot.sh
 ```

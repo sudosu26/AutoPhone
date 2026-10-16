@@ -178,7 +178,7 @@ logcat -s sshd 2>/dev/null || echo "Check: ss -tlnp | grep 8022"
 
 ```bash
 # On phone, verify backend is running
-bash ~/phonepilot/status.sh
+bash ~/phonepilot/phonepilot.sh status
 
 # Check if port 8265 is listening
 ss -tlnp | grep 8265

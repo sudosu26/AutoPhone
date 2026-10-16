@@ -134,11 +134,10 @@ PhonePilot is a modular Android phone automation platform with five main compone
 **Purpose:** Shell environment on Android where the Python backend runs.
 
 **Components:**
-- `setup.sh` — One-time installation and configuration
-- `start.sh` / `stop.sh` / `status.sh` — Service management
-- `healthcheck.sh` — Quick health verification
-- Boot script for Termux:Boot auto-start
-- SSH server for remote shell access
+- `phonepilot.sh` — Single installer and service controller (`run`, `start`,
+  `stop`, `status`, and `logs`)
+- `setup.sh` — Backward-compatible alias for `phonepilot.sh`
+- Optional Termux:Boot and SSH integration; neither is required to run the backend
 
 ### E. Remote Connectivity (Tailscale)
 

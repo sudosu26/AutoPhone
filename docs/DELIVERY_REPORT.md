@@ -48,7 +48,7 @@ graph TB
 | **Backend Engine & API** | Python 3.14, FastAPI, aiosqlite, APScheduler, Pydantic | **100% Complete** | **24/24 unit & security tests passing**; live daemon running on `:8265`; database schema migrated; API key authentication working. |
 | **PC Web Dashboard** | React 19, TypeScript, Vite, Tailwind CSS v4, TanStack Query | **100% Complete** | **Zero TypeScript errors** (`tsc -b`), production bundle generated in `dist/` (447 kB JS, 58 kB CSS). |
 | **Native Android App** | Kotlin, Jetpack Compose, Material 3, Coroutines/Flow, Retrofit | **100% Complete** | Full source code created (MainActivity, NavGraph, 6 Compose screens, 3 ViewModels, WorkManager, AccessibilityService). *(Note: JDK not present in Windows host environment to run Gradle compile)* |
-| **Termux Automation** | Bash, OpenSSH, Python venv, Termux:API, Termux:Boot | **100% Complete** | Automated `termux/setup.sh` installer, daemon lifecycle controllers (`start-phonepilot.sh`, `stop-phonepilot.sh`), and boot hooks. |
+| **Termux Automation** | Bash, Python venv | **Implemented** | Single `termux/phonepilot.sh` entry point installs and runs the backend; optional SSH and Termux:Boot require separate configuration. |
 | **System Documentation** | Markdown, Mermaid | **100% Complete** | 6 dedicated guides (`architecture.md`, `security-model.md`, `android-permissions.md`, `tailscale-setup.md`, `reboot-recovery.md`, `troubleshooting.md`). |
 
 ---
@@ -108,7 +108,7 @@ npm run dev
 2. Clone or copy the `AutoPhone/termux` folder to the device.
 3. Run the installer:
    ```bash
-   bash termux/setup.sh
+   bash termux/phonepilot.sh
    ```
 4. Start the service:
    ```bash
