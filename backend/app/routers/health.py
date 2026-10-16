@@ -1,9 +1,12 @@
 """Health check endpoint."""
 
 import time
+import logging
 from fastapi import APIRouter, Request
 from app.database import db
 from app.models import ApiResponse
+
+logger = logging.getLogger("phonepilot.health")
 
 router = APIRouter(tags=["health"])
 
@@ -19,7 +22,8 @@ async def get_health(request: Request) -> ApiResponse:
     try:
         await db.fetch_one("SELECT 1")
     except Exception as exc:
-        db_status = f"unhealthy: {exc}"
+        logger.warning("Health check database probe failed: %s", exc)
+        db_status = "unhealthy"
 
     uptime = int(time.time() - _START_TIME)
 

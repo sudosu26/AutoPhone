@@ -23,3 +23,22 @@ async def test_health_returns_request_id(client: AsyncClient):
     assert "X-Request-ID" in response.headers
     data = response.json()
     assert data["request_id"] is not None
+
+
+@pytest.mark.asyncio
+async def test_health_hides_database_error_details(client: AsyncClient, monkeypatch):
+    """Public health responses should not expose database exception details."""
+    from app.database import db
+
+    async def fail_probe(query, params=()):
+        raise RuntimeError("private database path")
+
+    monkeypatch.setattr(db, "fetch_one", fail_probe)
+
+    response = await client.get("/health")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is False
+    assert data["data"]["database"] == "unhealthy"
+    assert "private database path" not in response.text

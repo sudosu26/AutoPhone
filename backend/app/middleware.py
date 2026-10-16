@@ -30,17 +30,28 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimiter:
-    """Sliding-window in-memory rate limiter per client identifier."""
+    """Sliding-window in-memory rate limiter per client IP."""
 
     def __init__(self, limit: int = 100, window_seconds: int = 60):
         self.limit = limit
         self.window_seconds = window_seconds
         # client_id -> list of request timestamps
         self.requests: Dict[str, List[float]] = defaultdict(list)
+        self._last_cleanup = 0.0
 
     def is_allowed(self, client_id: str) -> bool:
-        now = time.time()
+        now = time.monotonic()
         window_start = now - self.window_seconds
+
+        if now - self._last_cleanup >= self.window_seconds:
+            expired_clients = [
+                key
+                for key, timestamps in self.requests.items()
+                if not timestamps or timestamps[-1] <= window_start
+            ]
+            for key in expired_clients:
+                del self.requests[key]
+            self._last_cleanup = now
 
         # Clean timestamps older than window
         timestamps = [t for t in self.requests[client_id] if t > window_start]
@@ -61,19 +72,15 @@ rate_limiter = RateLimiter(limit=settings.phonepilot_rate_limit, window_seconds=
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Enforce rate limiting per client IP / auth token."""
+    """Enforce rate limiting per client IP."""
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Bypass rate limiting for health check endpoint
         if request.url.path == "/health":
             return await call_next(request)
 
-        # Identify client by API Key header, auth token, or client IP
-        client_id = (
-            request.headers.get("X-API-Key")
-            or request.headers.get("Authorization")
-            or (request.client.host if request.client else "127.0.0.1")
-        )
+        # Do not let callers choose their own rate-limit bucket via auth headers.
+        client_id = request.client.host if request.client else "127.0.0.1"
 
         req_id = getattr(request.state, "request_id", str(uuid.uuid4()))
 

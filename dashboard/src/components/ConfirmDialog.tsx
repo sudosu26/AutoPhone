@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { AlertTriangle, X, Loader2 } from 'lucide-react';
 
 interface ConfirmDialogProps {
@@ -24,15 +24,64 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef(onCancel);
+  const isLoadingRef = useRef(isLoading);
+  const titleId = useId();
+  const messageId = useId();
+
   useEffect(() => {
+    cancelRef.current = onCancel;
+    isLoadingRef.current = isLoading;
+  }, [onCancel, isLoading]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const dialog = dialogRef.current;
+    const focusableSelector =
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusableElements = () =>
+      Array.from(dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? []);
+
+    const firstFocusable = focusableElements()[0];
+    if (firstFocusable) firstFocusable.focus();
+    else dialog?.focus();
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen && !isLoading) {
-        onCancel();
+      if (e.key === 'Escape' && !isLoadingRef.current) {
+        cancelRef.current();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const elements = focusableElements();
+        if (elements.length === 0) {
+          e.preventDefault();
+          dialog?.focus();
+          return;
+        }
+
+        const first = elements[0];
+        const last = elements[elements.length - 1];
+        if (e.shiftKey && (document.activeElement === first || !dialog?.contains(document.activeElement))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (document.activeElement === last || !dialog?.contains(document.activeElement))) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isLoading, onCancel]);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -50,11 +99,16 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
       <div
+        ref={dialogRef}
         className="relative w-full max-w-md p-6 bg-white dark:bg-navy-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-navy-700 transform transition-all scale-100"
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={messageId}
+        tabIndex={-1}
       >
         <button
+          type="button"
           onClick={onCancel}
           disabled={isLoading}
           className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition-colors"
@@ -69,10 +123,10 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </div>
 
           <div className="flex-1 pr-6">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <h3 id={titleId} className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               {title}
             </h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            <p id={messageId} className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
               {message}
             </p>
           </div>

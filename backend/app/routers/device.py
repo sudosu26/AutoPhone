@@ -35,20 +35,24 @@ async def get_device_status(
             id=row["id"],
             timestamp=row["timestamp"],
             battery_level=row["battery_level"],
-            is_charging=bool(row["is_charging"]),
-            wifi_connected=bool(row["wifi_connected"]),
-            tailscale_connected=bool(row["tailscale_connected"]),
+            is_charging=(
+                bool(row["is_charging"]) if row["is_charging"] is not None else None
+            ),
+            wifi_connected=(
+                bool(row["wifi_connected"]) if row["wifi_connected"] is not None else None
+            ),
+            tailscale_connected=(
+                bool(row["tailscale_connected"])
+                if row["tailscale_connected"] is not None
+                else None
+            ),
             uptime_seconds=row["uptime_seconds"],
         )
     else:
-        # Fallback to current host metrics
+        # Keep the server uptime, but report unavailable device measurements as unknown.
         current_uptime = int(time.time() - _START_TIME)
         status_data = DeviceStatusResponse(
             timestamp=datetime.now(timezone.utc).isoformat(),
-            battery_level=100.0,
-            is_charging=True,
-            wifi_connected=True,
-            tailscale_connected=False,
             uptime_seconds=current_uptime,
         )
 

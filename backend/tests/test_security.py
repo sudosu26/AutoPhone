@@ -1,6 +1,7 @@
 """Tests for task engine, adapters, and security controls."""
 
 import os
+from pathlib import Path
 import pytest
 from httpx import AsyncClient
 
@@ -81,6 +82,67 @@ async def test_rate_limit_header_present(client: AsyncClient):
     # We won't actually trigger rate limiting in tests (limit=1000)
     response = await client.get("/health")
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_invalid_api_keys_share_client_rate_limit_bucket(client: AsyncClient):
+    """Changing an invalid API key must not create a fresh rate-limit bucket."""
+    from app.middleware import rate_limiter
+
+    original_limit = rate_limiter.limit
+    rate_limiter.clear()
+    rate_limiter.limit = 1
+    try:
+        first = await client.get(
+            "/api/v1/tasks",
+            headers={"X-API-Key": "invalid-key-one"},
+        )
+        second = await client.get(
+            "/api/v1/tasks",
+            headers={"X-API-Key": "invalid-key-two"},
+        )
+        assert first.status_code == 401
+        assert second.status_code == 429
+        assert second.headers["Retry-After"] == "60"
+    finally:
+        rate_limiter.limit = original_limit
+        rate_limiter.clear()
+
+
+def test_rate_limiter_removes_expired_client_buckets(monkeypatch):
+    """Inactive client buckets should be removed instead of growing forever."""
+    from app.middleware import RateLimiter
+
+    now = [100.0]
+    monkeypatch.setattr("app.middleware.time.monotonic", lambda: now[0])
+    limiter = RateLimiter(limit=2, window_seconds=10)
+    assert limiter.is_allowed("old-client")
+
+    now[0] = 111.0
+    assert limiter.is_allowed("new-client")
+    assert "old-client" not in limiter.requests
+
+
+@pytest.mark.asyncio
+async def test_file_ops_cannot_delete_sandbox_root(auth_client: AsyncClient):
+    """Deleting the sandbox root must be rejected without removing its contents."""
+    from app.config import settings
+
+    sentinel = Path(settings.phonepilot_sandbox_dir) / "keep-me.txt"
+    sentinel.write_text("preserve", encoding="utf-8")
+    try:
+        response = await auth_client.post(
+            "/api/v1/tasks",
+            json={
+                "name": "Delete Sandbox Root",
+                "adapter_type": "file_ops",
+                "config": {"operation": "delete", "path": "."},
+            },
+        )
+        assert response.status_code == 400
+        assert sentinel.read_text(encoding="utf-8") == "preserve"
+    finally:
+        sentinel.unlink(missing_ok=True)
 
 
 @pytest.mark.asyncio

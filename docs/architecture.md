@@ -212,6 +212,8 @@ Scheduler (APScheduler)
 | GET | `/api/v1/history` | Yes | Execution history |
 | GET | `/api/v1/system/diagnostics` | Yes | System diagnostics |
 
+When no device status snapshot exists, battery and connectivity measurements are returned as `null` (unknown); `uptime_seconds` reports backend uptime.
+
 ## Database Schema
 
 ```sql

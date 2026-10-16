@@ -182,9 +182,9 @@ class DeviceStatusResponse(BaseModel):
     id: Optional[int] = None
     timestamp: str
     battery_level: Optional[float] = None
-    is_charging: bool = False
-    wifi_connected: bool = False
-    tailscale_connected: bool = False
+    is_charging: Optional[bool] = None
+    wifi_connected: Optional[bool] = None
+    tailscale_connected: Optional[bool] = None
     uptime_seconds: int = 0
 
 

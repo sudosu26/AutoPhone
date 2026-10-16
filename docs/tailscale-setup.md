@@ -139,6 +139,10 @@ Configure the PC dashboard to use the Tailscale IP:
 - Open dashboard Settings
 - Set Backend URL to: `http://<phone-tailscale-ip>:8265`
 
+The Android debug build can also connect to this HTTP URL. Android release builds
+require an HTTPS backend URL; use an HTTPS reverse proxy or another TLS endpoint
+if connecting from a release build.
+
 ## Troubleshooting
 
 ### Phone shows as offline in Tailscale

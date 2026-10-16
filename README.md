@@ -114,6 +114,9 @@ cd android
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
+The debug Android build permits HTTP for local development. Release builds
+require an HTTPS backend URL to protect API credentials in transit.
+
 ## Development
 
 ### Backend Development

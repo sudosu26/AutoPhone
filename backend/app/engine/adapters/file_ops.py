@@ -49,7 +49,10 @@ class FileOpsAdapter(BaseAdapter):
             raise ValueError("Configuration must include non-empty string 'path'")
 
         # Verify path traversal in validation phase
-        self._resolve_safe_path(path)
+        target_path = self._resolve_safe_path(path)
+        sandbox_root = Path(settings.phonepilot_sandbox_dir).resolve()
+        if op.lower() == "delete" and target_path == sandbox_root:
+            raise ValueError("Deleting the sandbox root is not allowed.")
 
         if op.lower() == "write" and "content" not in config:
             raise ValueError("'write' operation requires 'content' in configuration")

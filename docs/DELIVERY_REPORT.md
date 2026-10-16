@@ -58,7 +58,7 @@ graph TB
 The backend service is actively running and tested:
 
 - **Host & Port:** `http://localhost:8265`
-- **Active API Key:** `pp_live_6f11804df3a235fd3b46aba37066002989e9e661078eeda3`
+- **API key:** Use the value configured in `backend/.env`; never publish live keys.
 - **Interactive Swagger Docs:** `http://localhost:8265/docs`
 - **Health Check:** `http://localhost:8265/health`
 
@@ -80,7 +80,7 @@ The backend service is actively running and tested:
    - Shell commands strictly enforced against an allowlist: `ls`, `cat`, `echo`, `ping`, `date`, `uptime`, `df`, `free`, `whoami`, `termux-battery-status`, `termux-wifi-connectioninfo`.
    - `shell=False` execution prevents argument injection or chained command exploits (e.g., `; rm -rf`).
 3. **Filesystem Sandboxing:**
-   - File adapter operations restricted to `PHONEPILOT_SANDBOX_DIR` with strict path traversal checking (`..` path resolution blocks).
+   - File adapter operations are restricted to `PHONEPILOT_SANDBOX_DIR`, including rejection of sandbox-root deletion.
 4. **Rate Limiting & Audit Trail:**
    - Sliding-window rate limiter per client IP.
    - All state mutations and administrative actions recorded to `audit_log` with actor identifier and timestamp.
@@ -101,7 +101,7 @@ cd c:\Users\ajoya\Downloads\AutoPhone\dashboard
 npm run dev
 # Open http://localhost:5173
 ```
-*Login with the active API key: `pp_live_6f11804df3a235fd3b46aba37066002989e9e661078eeda3`*
+*Log in with the API key configured in `backend/.env`. Never store live keys in documentation.*
 
 ### Installing on the Android Phone via Termux:
 1. Install Termux and Termux:API from F-Droid.

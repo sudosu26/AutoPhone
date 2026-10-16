@@ -49,7 +49,8 @@ log_success "Packages updated."
 # Step 2: Install required packages
 # -----------------------------------------------------------
 log_info "Installing required packages..."
-pkg install -y python git curl jq
+# pydantic-core may need to compile from source on Android/Termux.
+pkg install -y python git curl jq rust clang make pkg-config
 
 # SSH and Termux:API are useful but are not needed to run the backend.
 if ! command -v sshd >/dev/null 2>&1; then
@@ -119,7 +120,7 @@ fi
 
 # Activate and install dependencies
 log_info "Installing Python dependencies..."
-"$VENV_DIR/bin/python" -m pip install --upgrade pip
+"$VENV_DIR/bin/python" -m pip install --upgrade pip setuptools wheel
 "$VENV_DIR/bin/python" -m pip install -r "$PHONEPILOT_DIR/backend/requirements.txt"
 log_success "Dependencies installed."
 

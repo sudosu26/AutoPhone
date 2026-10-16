@@ -26,7 +26,7 @@ PhonePilot is a device management tool that can execute automation tasks on your
 
 ### API Key Authentication
 - A unique API key is generated on first run
-- The key is stored **hashed** (bcrypt) in the database
+- The key is stored as a SHA-256 hash in the database
 - Every API request (except `/health`) must include the key
 - Header: `Authorization: Bearer <api-key>`
 - Invalid keys return HTTP 401 with no additional information
@@ -39,7 +39,7 @@ PhonePilot is a device management tool that can execute automation tasks on your
 - Refresh mechanism available for long-running dashboard sessions
 
 ### Credential Storage
-- API key: bcrypt hash in SQLite
+- API key: SHA-256 hash in SQLite
 - Secret key: generated randomly, stored in `.env` file
 - `.env` file permissions: 600 (owner read/write only)
 - No credentials in source code or version control
@@ -53,9 +53,9 @@ PhonePilot uses a **strict allowlist** approach. Only explicitly permitted opera
 
 | Adapter | Allowed Actions | Restrictions |
 |---------|----------------|--------------|
-| Shell | `ls`, `cat`, `echo`, `ping`, `date`, `uptime`, `df`, `free`, `whoami`, `termux-battery-status`, `termux-wifi-connectioninfo`, `termux-notification` | No pipes, redirects, or command chaining |
-| File | `read`, `write`, `list`, `delete` | Sandboxed to `SANDBOX_DIR` only |
-| HTTP | `GET`, `POST`, `PUT`, `DELETE` | Configurable URL allowlist |
+| Shell | `ls`, `cat`, `echo`, `ping`, `date`, `uptime`, `df`, `free`, `whoami`, `termux-battery-status`, `termux-wifi-connectioninfo` | No pipes, redirects, or command chaining |
+| File | `read`, `write`, `list`, `delete`, `exists`, `stat` | Sandboxed to `SANDBOX_DIR`; deleting the sandbox root is rejected |
+| HTTP | `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS` | HTTP/HTTPS URLs configured by an authenticated user; no destination allowlist is currently enforced |
 | App Launch | `am start` | Package name validation, no arbitrary intents |
 
 ### What Is NOT Allowed
@@ -71,8 +71,8 @@ PhonePilot uses a **strict allowlist** approach. Only explicitly permitted opera
 
 ### API Requests
 - All request bodies validated via Pydantic models
-- Task names: alphanumeric + spaces/hyphens, max 100 chars
-- Task descriptions: max 500 chars
+- Task names: non-empty, max 100 characters
+- Task descriptions: optional
 - Cron expressions: validated syntax
 - File paths: resolved and checked against sandbox boundary
 - URLs: scheme validation (http/https only)
@@ -81,6 +81,7 @@ PhonePilot uses a **strict allowlist** approach. Only explicitly permitted opera
 ### Injection Prevention
 - **Command injection**: Shell commands are executed via `subprocess` with `shell=False` and argument arrays, never string interpolation
 - **Path traversal**: All file paths are resolved to absolute paths and verified to be within `SANDBOX_DIR`
+- **Sandbox deletion**: Deleting the sandbox root itself is rejected
 - **SQL injection**: All database queries use parameterized statements (via aiosqlite)
 - **XSS**: API returns JSON only; dashboard uses React's built-in escaping
 
@@ -104,6 +105,7 @@ PhonePilot uses a **strict allowlist** approach. Only explicitly permitted opera
 
 ### Rate Limiting
 - 100 requests per minute per client (configurable)
+- Rate-limit buckets are keyed by the connecting client's IP, not caller-supplied authentication headers
 - Prevents brute-force and denial-of-service
 - Returns HTTP 429 when exceeded
 
@@ -165,10 +167,11 @@ Every security-relevant action is logged:
 
 ## Known Limitations
 
-1. **No HTTPS by default**: The API uses HTTP. Encryption is provided by Tailscale. For local network access without Tailscale, traffic is unencrypted.
+1. **No HTTPS by default**: The backend API uses HTTP. Tailscale encrypts traffic sent through its VPN, but local-network traffic outside Tailscale is unencrypted. The Android debug build allows HTTP; Android release builds require HTTPS.
 2. **Single-user**: PhonePilot is designed for one user controlling one device. Multi-user access control is not implemented.
-3. **SQLite limitations**: Not suitable for high-concurrency scenarios (not expected for single-device use).
-4. **Android background restrictions**: Android may kill the backend process; WorkManager provides best-effort recovery.
+3. **HTTP destination access**: HTTP tasks can connect to any configured HTTP/HTTPS destination reachable from the backend host. Only create tasks you trust; do not expose the API to untrusted users.
+4. **SQLite limitations**: Not suitable for high-concurrency scenarios (not expected for single-device use).
+5. **Android background restrictions**: Android may kill the backend process; Termux:Boot provides best-effort recovery.
 
 ## Recommendations
 

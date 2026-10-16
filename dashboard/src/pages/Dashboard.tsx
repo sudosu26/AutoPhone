@@ -221,15 +221,21 @@ export const Dashboard: React.FC = () => {
                   <div className="flex items-center gap-3">
                     {device?.is_charging ? (
                       <BatteryCharging className="w-5 h-5 text-emerald-500" />
-                    ) : (
+                    ) : device?.is_charging === false ? (
                       <Battery className="w-5 h-5 text-slate-400" />
+                    ) : (
+                      <Battery className="w-5 h-5 text-slate-300 dark:text-slate-500" />
                     )}
                     <div>
                       <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
                         Battery
                       </div>
                       <div className="text-[11px] text-slate-400">
-                        {device?.is_charging ? 'Charging' : 'On Battery'}
+                        {device?.is_charging == null
+                          ? 'Unknown'
+                          : device.is_charging
+                            ? 'Charging'
+                            : 'On Battery'}
                       </div>
                     </div>
                   </div>
@@ -245,8 +251,10 @@ export const Dashboard: React.FC = () => {
                   <div className="flex items-center gap-3">
                     {device?.wifi_connected ? (
                       <Wifi className="w-5 h-5 text-emerald-500" />
-                    ) : (
+                    ) : device?.wifi_connected === false ? (
                       <WifiOff className="w-5 h-5 text-rose-500" />
+                    ) : (
+                      <Wifi className="w-5 h-5 text-slate-300 dark:text-slate-500" />
                     )}
                     <div>
                       <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -257,12 +265,18 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <span
                     className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      device?.wifi_connected
+                    device?.wifi_connected == null
+                      ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400'
+                      : device.wifi_connected
                         ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                         : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
                     }`}
                   >
-                    {device?.wifi_connected ? 'Connected' : 'Disconnected'}
+                    {device?.wifi_connected == null
+                    ? 'Unknown'
+                    : device.wifi_connected
+                      ? 'Connected'
+                      : 'Disconnected'}
                   </span>
                 </div>
 
@@ -271,8 +285,10 @@ export const Dashboard: React.FC = () => {
                   <div className="flex items-center gap-3">
                     {device?.tailscale_connected ? (
                       <ShieldCheck className="w-5 h-5 text-teal-500" />
-                    ) : (
+                    ) : device?.tailscale_connected === false ? (
                       <ShieldAlert className="w-5 h-5 text-amber-500" />
+                    ) : (
+                      <ShieldAlert className="w-5 h-5 text-slate-300 dark:text-slate-500" />
                     )}
                     <div>
                       <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -283,12 +299,18 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <span
                     className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      device?.tailscale_connected
+                    device?.tailscale_connected == null
+                      ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400'
+                      : device.tailscale_connected
                         ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400'
                         : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
                     }`}
                   >
-                    {device?.tailscale_connected ? 'Active' : 'Standby'}
+                    {device?.tailscale_connected == null
+                    ? 'Unknown'
+                    : device.tailscale_connected
+                      ? 'Active'
+                      : 'Standby'}
                   </span>
                 </div>
 

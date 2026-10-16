@@ -88,9 +88,9 @@ export interface DeviceStatusResponse {
   id?: number;
   timestamp: string;
   battery_level?: number | null;
-  is_charging: boolean;
-  wifi_connected: boolean;
-  tailscale_connected: boolean;
+  is_charging?: boolean | null;
+  wifi_connected?: boolean | null;
+  tailscale_connected?: boolean | null;
   uptime_seconds: number;
 }
 

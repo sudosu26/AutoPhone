@@ -1,6 +1,7 @@
 package com.phonepilot.app.data.api
 
 import android.content.Context
+import com.phonepilot.app.BuildConfig
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.phonepilot.app.data.model.ApiResponse
@@ -37,10 +38,18 @@ class ApiClient private constructor(private val context: Context) {
         val targetHttpUrl = configuredUrlStr.toHttpUrlOrNull()
 
         if (targetHttpUrl != null) {
+            val basePath = targetHttpUrl.encodedPath.trimEnd('/')
+            val requestPath = originalRequest.url.encodedPath
+            val combinedPath = if (basePath.isEmpty()) {
+                requestPath
+            } else {
+                "$basePath/${requestPath.trimStart('/')}"
+            }
             val newHttpUrl = originalRequest.url.newBuilder()
                 .scheme(targetHttpUrl.scheme)
                 .host(targetHttpUrl.host)
                 .port(targetHttpUrl.port)
+                .encodedPath(combinedPath)
                 .build()
 
             val requestBuilder = originalRequest.newBuilder().url(newHttpUrl)
@@ -60,7 +69,13 @@ class ApiClient private constructor(private val context: Context) {
     }
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        redactHeader("Authorization")
+        redactHeader("X-API-Key")
+        level = if (BuildConfig.DEBUG) {
+            HttpLoggingInterceptor.Level.BASIC
+        } else {
+            HttpLoggingInterceptor.Level.NONE
+        }
     }
 
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
