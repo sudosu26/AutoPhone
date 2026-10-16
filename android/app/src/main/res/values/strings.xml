@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PhonePilot</string>
+    <string name="accessibility_service_label">PhonePilot Automation Service</string>
+    <string name="accessibility_service_description">PhonePilot uses this accessibility service exclusively for authorized on-device UI automation and inspection when explicitly enabled by the user. It can detect visible screen components, navigate between apps, and execute configured user actions. PhonePilot does not collect, store, or transmit sensitive personal passwords or payment data.</string>
+    <string name="channel_health_name">PhonePilot Health</string>
+    <string name="channel_health_desc">Notifications regarding device connectivity, background heartbeat, and automation health status.</string>
+    <string name="channel_tasks_name">Task Executions</string>
+    <string name="channel_tasks_desc">Notifications for task execution results, alerts, and scheduled workflows.</string>
+</resources>
