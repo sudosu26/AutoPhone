@@ -11,6 +11,7 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PHONEPILOT_DIR="$HOME/phonepilot"
 VENV_DIR="$PHONEPILOT_DIR/.venv"
 LOG_DIR="$PHONEPILOT_DIR/logs"
@@ -40,27 +41,41 @@ echo ""
 # Step 1: Update packages
 # -----------------------------------------------------------
 log_info "Updating Termux packages..."
-pkg update -y && pkg upgrade -y
+pkg update -y
+pkg upgrade -y
 log_success "Packages updated."
 
 # -----------------------------------------------------------
 # Step 2: Install required packages
 # -----------------------------------------------------------
 log_info "Installing required packages..."
-pkg install -y python openssh git curl termux-api jq
+pkg install -y python git curl jq
+
+# SSH and Termux:API are useful but are not needed to run the backend.
+if ! command -v sshd >/dev/null 2>&1; then
+    log_info "Installing optional SSH support..."
+    if pkg install -y openssh && command -v sshd >/dev/null 2>&1; then
+        log_success "SSH server available: $(command -v sshd)"
+    else
+        log_warn "SSH server unavailable; PhonePilot can still run locally."
+        log_warn "To enable SSH later, run: pkg install openssh"
+    fi
+else
+    log_success "SSH server available: $(command -v sshd)"
+fi
+
+if ! command -v termux-battery-status >/dev/null 2>&1; then
+    log_info "Installing optional Termux:API support..."
+    if pkg install -y termux-api; then
+        log_success "Termux:API command-line tools installed."
+    else
+        log_warn "Termux:API tools unavailable; PhonePilot can still run."
+    fi
+fi
 
 # Verify Python
 PYTHON_VERSION=$(python3 --version 2>&1)
 log_success "Python installed: $PYTHON_VERSION"
-
-# Verify SSH
-SSHD_PATH=$(which sshd 2>/dev/null || echo "not found")
-if [ "$SSHD_PATH" != "not found" ]; then
-    log_success "SSH server available at: $SSHD_PATH"
-else
-    log_error "SSH server not found. Install openssh: pkg install openssh"
-    exit 1
-fi
 
 # -----------------------------------------------------------
 # Step 3: Create directory structure
@@ -76,20 +91,19 @@ log_success "Directories created."
 # -----------------------------------------------------------
 # Step 4: Copy or clone backend code
 # -----------------------------------------------------------
-if [ -d "$PHONEPILOT_DIR/backend" ]; then
+SOURCE_BACKEND_DIR="$(cd "$SCRIPT_DIR/../backend" 2>/dev/null && pwd || true)"
+if [ ! -d "$PHONEPILOT_DIR/backend" ] && [ -n "$SOURCE_BACKEND_DIR" ] && [ -f "$SOURCE_BACKEND_DIR/run.py" ]; then
+    log_info "Copying backend from the project directory..."
+    cp -R "$SOURCE_BACKEND_DIR" "$PHONEPILOT_DIR/backend"
+fi
+
+if [ -f "$PHONEPILOT_DIR/backend/run.py" ] && [ -f "$PHONEPILOT_DIR/backend/requirements.txt" ]; then
     log_info "Backend directory already exists. Skipping copy."
 else
-    log_info "Backend code should be copied to: $PHONEPILOT_DIR/backend/"
-    log_info "You can use SCP, Git, or direct copy."
-    log_info ""
-    log_info "Option 1 - SCP from PC (replace <PC_IP>):"
-    log_info "  scp -r <PC_IP>:path/to/AutoPhone/backend $PHONEPILOT_DIR/backend"
-    log_info ""
-    log_info "Option 2 - Git clone (if pushed to a repo):"
-    log_info "  git clone <your-repo-url> $PHONEPILOT_DIR/repo"
-    log_info "  cp -r $PHONEPILOT_DIR/repo/backend $PHONEPILOT_DIR/backend"
-    log_info ""
-    mkdir -p "$PHONEPILOT_DIR/backend"
+    log_error "Backend files are missing or incomplete."
+    log_info "Copy the project's backend/ folder to $PHONEPILOT_DIR/backend/"
+    log_info "It must contain run.py and requirements.txt. Then rerun this script."
+    exit 1
 fi
 
 # -----------------------------------------------------------
@@ -105,17 +119,9 @@ fi
 
 # Activate and install dependencies
 log_info "Installing Python dependencies..."
-source "$VENV_DIR/bin/activate"
-pip install --upgrade pip
-
-if [ -f "$PHONEPILOT_DIR/backend/requirements.txt" ]; then
-    pip install -r "$PHONEPILOT_DIR/backend/requirements.txt"
-    log_success "Dependencies installed."
-else
-    log_warn "requirements.txt not found. Install manually after copying backend code."
-    log_info "  pip install fastapi uvicorn pydantic pydantic-settings aiosqlite python-jose[cryptography] passlib[bcrypt] python-multipart apscheduler httpx"
-fi
-deactivate
+"$VENV_DIR/bin/python" -m pip install --upgrade pip
+"$VENV_DIR/bin/python" -m pip install -r "$PHONEPILOT_DIR/backend/requirements.txt"
+log_success "Dependencies installed."
 
 # -----------------------------------------------------------
 # Step 6: Generate environment configuration
@@ -159,46 +165,38 @@ fi
 # -----------------------------------------------------------
 # Step 7: Configure SSH
 # -----------------------------------------------------------
-log_info "Configuring SSH server..."
+if command -v sshd >/dev/null 2>&1 && command -v ssh-keygen >/dev/null 2>&1; then
+    log_info "Configuring SSH server..."
 
-SSH_DIR="$HOME/.ssh"
-mkdir -p "$SSH_DIR"
-chmod 700 "$SSH_DIR"
+    SSH_DIR="$HOME/.ssh"
+    mkdir -p "$SSH_DIR"
+    chmod 700 "$SSH_DIR"
 
-AUTHORIZED_KEYS="$SSH_DIR/authorized_keys"
-if [ ! -f "$AUTHORIZED_KEYS" ]; then
-    touch "$AUTHORIZED_KEYS"
-    chmod 600 "$AUTHORIZED_KEYS"
-    log_info "Created authorized_keys file."
-    log_info ""
-    log_info "To enable SSH key authentication from your PC:"
-    log_info "  1. On your PC, generate a key: ssh-keygen -t ed25519"
-    log_info "  2. Copy the public key from: C:\\Users\\<you>\\.ssh\\id_ed25519.pub"
-    log_info "  3. Paste it into: $AUTHORIZED_KEYS"
-    log_info ""
+    AUTHORIZED_KEYS="$SSH_DIR/authorized_keys"
+    if [ ! -f "$AUTHORIZED_KEYS" ]; then
+        touch "$AUTHORIZED_KEYS"
+        chmod 600 "$AUTHORIZED_KEYS"
+        log_info "Created authorized_keys file."
+        log_info ""
+        log_info "To enable SSH key authentication from your PC:"
+        log_info "  1. On your PC, generate a key: ssh-keygen -t ed25519"
+        log_info "  2. Copy the public key from: C:\\Users\\<you>\\.ssh\\id_ed25519.pub"
+        log_info "  3. Paste it into: $AUTHORIZED_KEYS"
+        log_info ""
+    fi
+
+    if [ ! -f "$HOME/.ssh/ssh_host_ed25519_key" ]; then
+        ssh-keygen -t ed25519 -f "$HOME/.ssh/ssh_host_ed25519_key" -N "" -q
+        log_success "SSH host key generated."
+    fi
+
+    log_info "Set an SSH password with 'passwd', or configure authorized_keys for key-only access."
+    TERMUX_SSH_PORT=8022
+    log_info "SSH port: $TERMUX_SSH_PORT"
+    log_info "Connect from PC: ssh -p $TERMUX_SSH_PORT $(whoami)@<phone-ip>"
+else
+    log_warn "Skipping SSH configuration because OpenSSH is unavailable."
 fi
-
-# Generate host key if needed
-if [ ! -f "$HOME/.ssh/ssh_host_ed25519_key" ]; then
-    ssh-keygen -t ed25519 -f "$HOME/.ssh/ssh_host_ed25519_key" -N "" -q
-    log_success "SSH host key generated."
-fi
-
-# Set SSH password (Termux uses single user)
-log_info "Setting SSH password for Termux..."
-log_info "You will be prompted to enter a password for SSH access."
-log_info "If you prefer key-only auth, you can skip this and use authorized_keys."
-echo ""
-log_info "Run 'passwd' manually to set your Termux password."
-echo ""
-
-# Print SSH info
-TERMUX_SSH_PORT=8022
-log_info "SSH Configuration:"
-log_info "  Port: $TERMUX_SSH_PORT"
-log_info "  Start SSH: sshd"
-log_info "  Connect from PC: ssh -p $TERMUX_SSH_PORT $(whoami)@<phone-ip>"
-log_info "  With Tailscale:  ssh -p $TERMUX_SSH_PORT $(whoami)@<tailscale-ip>"
 
 # -----------------------------------------------------------
 # Step 8: Create startup script for Termux:Boot
@@ -211,33 +209,21 @@ cat > "$BOOT_DIR/phonepilot-start.sh" << 'BOOTEOF'
 # This runs automatically when the device boots (if Termux:Boot is installed)
 
 PHONEPILOT_DIR="$HOME/phonepilot"
-VENV_DIR="$PHONEPILOT_DIR/.venv"
 LOG_DIR="$PHONEPILOT_DIR/logs"
-PID_FILE="$PHONEPILOT_DIR/phonepilot.pid"
 
 # Wait for network to be available
 sleep 10
 
 # Start SSH server
-sshd 2>/dev/null
+if command -v sshd >/dev/null 2>&1; then
+    sshd 2>/dev/null || true
+fi
 
-# Start PhonePilot backend
-if [ -f "$VENV_DIR/bin/activate" ] && [ -f "$PHONEPILOT_DIR/backend/run.py" ]; then
-    source "$VENV_DIR/bin/activate"
-    cd "$PHONEPILOT_DIR/backend"
-    
-    # Kill existing process if running
-    if [ -f "$PID_FILE" ]; then
-        OLD_PID=$(cat "$PID_FILE")
-        kill "$OLD_PID" 2>/dev/null || true
-        rm -f "$PID_FILE"
-    fi
-    
-    # Start backend in background
-    nohup python run.py >> "$LOG_DIR/phonepilot-boot.log" 2>&1 &
-    echo $! > "$PID_FILE"
-    
-    echo "[$(date -Iseconds)] PhonePilot started (PID: $(cat $PID_FILE))" >> "$LOG_DIR/boot.log"
+mkdir -p "$LOG_DIR"
+if [ -x "$PHONEPILOT_DIR/start.sh" ]; then
+    "$PHONEPILOT_DIR/start.sh" >> "$LOG_DIR/phonepilot-boot.log" 2>&1
+else
+    echo "PhonePilot start script not found: $PHONEPILOT_DIR/start.sh" >> "$LOG_DIR/phonepilot-boot.log"
 fi
 BOOTEOF
 
@@ -257,43 +243,88 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/.venv"
+BACKEND_DIR="$SCRIPT_DIR/backend"
 LOG_DIR="$SCRIPT_DIR/logs"
 PID_FILE="$SCRIPT_DIR/phonepilot.pid"
 
 mkdir -p "$LOG_DIR"
 
+is_phonepilot_process() {
+    local pid="$1"
+    case "$pid" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    kill -0 "$pid" 2>/dev/null || return 1
+    [ -r "/proc/$pid/cmdline" ] || return 1
+    tr '\0' ' ' < "/proc/$pid/cmdline" | grep -Fq "$BACKEND_DIR/run.py"
+}
+
+find_phonepilot_process() {
+    local cmdline_file pid
+    for cmdline_file in /proc/[0-9]*/cmdline; do
+        [ -r "$cmdline_file" ] || continue
+        pid="${cmdline_file#/proc/}"
+        pid="${pid%/cmdline}"
+        if is_phonepilot_process "$pid"; then
+            printf '%s\n' "$pid"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if [ ! -x "$VENV_DIR/bin/python" ]; then
+    echo "ERROR: Python environment not found. Rerun termux/setup.sh."
+    exit 1
+fi
+if [ ! -f "$BACKEND_DIR/run.py" ]; then
+    echo "ERROR: Backend entry point not found: $BACKEND_DIR/run.py"
+    exit 1
+fi
+
 # Check if already running
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
-    if kill -0 "$PID" 2>/dev/null; then
+    if is_phonepilot_process "$PID"; then
         echo "PhonePilot is already running (PID: $PID)"
         exit 0
     fi
     rm -f "$PID_FILE"
 fi
 
-# Activate venv and start
-source "$VENV_DIR/bin/activate"
-cd "$SCRIPT_DIR/backend"
+PID=$(find_phonepilot_process || true)
+if [ -n "$PID" ]; then
+    printf '%s\n' "$PID" > "$PID_FILE"
+    echo "PhonePilot is already running (PID: $PID)"
+    exit 0
+fi
 
 echo "Starting PhonePilot backend..."
-nohup python run.py >> "$LOG_DIR/phonepilot.log" 2>&1 &
+nohup "$VENV_DIR/bin/python" "$BACKEND_DIR/run.py" >> "$LOG_DIR/phonepilot.log" 2>&1 &
 PID=$!
-echo $PID > "$PID_FILE"
+printf '%s\n' "$PID" > "$PID_FILE"
 
-sleep 2
+for attempt in $(seq 1 15); do
+    if curl -fsS -m 2 http://localhost:8265/health >/dev/null 2>&1; then
+        echo "PhonePilot started successfully (PID: $PID)"
+        echo "API: http://localhost:8265"
+        echo "Docs: http://localhost:8265/docs"
+        echo "Logs: tail -f $LOG_DIR/phonepilot.log"
+        exit 0
+    fi
+    if ! is_phonepilot_process "$PID"; then
+        break
+    fi
+    sleep 1
+done
 
-if kill -0 "$PID" 2>/dev/null; then
-    echo "PhonePilot started successfully (PID: $PID)"
-    echo "API: http://localhost:8265"
-    echo "Docs: http://localhost:8265/docs"
-    echo "Logs: tail -f $LOG_DIR/phonepilot.log"
-else
-    echo "ERROR: PhonePilot failed to start. Check logs:"
-    echo "  tail -20 $LOG_DIR/phonepilot.log"
-    rm -f "$PID_FILE"
-    exit 1
+if is_phonepilot_process "$PID"; then
+    kill "$PID" 2>/dev/null || true
 fi
+rm -f "$PID_FILE"
+echo "ERROR: PhonePilot failed its health check. Recent logs:"
+tail -20 "$LOG_DIR/phonepilot.log"
+exit 1
 EOF
 
 # Stop script
@@ -305,33 +336,43 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_FILE="$SCRIPT_DIR/phonepilot.pid"
 
+is_phonepilot_process() {
+    local pid="$1"
+    case "$pid" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    kill -0 "$pid" 2>/dev/null || return 1
+    [ -r "/proc/$pid/cmdline" ] || return 1
+    tr '\0' ' ' < "/proc/$pid/cmdline" | grep -Fq "$SCRIPT_DIR/backend/run.py"
+}
+
 if [ ! -f "$PID_FILE" ]; then
     echo "PhonePilot is not running (no PID file)."
     exit 0
 fi
 
 PID=$(cat "$PID_FILE")
-if kill -0 "$PID" 2>/dev/null; then
+if is_phonepilot_process "$PID"; then
     echo "Stopping PhonePilot (PID: $PID)..."
     kill "$PID"
     
     # Wait for graceful shutdown
     for i in $(seq 1 10); do
-        if ! kill -0 "$PID" 2>/dev/null; then
+        if ! is_phonepilot_process "$PID"; then
             break
         fi
         sleep 1
     done
     
     # Force kill if still running
-    if kill -0 "$PID" 2>/dev/null; then
+    if is_phonepilot_process "$PID"; then
         echo "Force killing PhonePilot..."
         kill -9 "$PID" 2>/dev/null || true
     fi
     
     echo "PhonePilot stopped."
 else
-    echo "PhonePilot process not found (stale PID file)."
+    echo "PhonePilot process not found (stale or unrelated PID file)."
 fi
 
 rm -f "$PID_FILE"
@@ -347,6 +388,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_FILE="$SCRIPT_DIR/phonepilot.pid"
 LOG_DIR="$SCRIPT_DIR/logs"
 
+is_phonepilot_process() {
+    local pid="$1"
+    case "$pid" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    kill -0 "$pid" 2>/dev/null || return 1
+    [ -r "/proc/$pid/cmdline" ] || return 1
+    tr '\0' ' ' < "/proc/$pid/cmdline" | grep -Fq "$SCRIPT_DIR/backend/run.py"
+}
+
 echo "============================================"
 echo "  PhonePilot Status Check"
 echo "============================================"
@@ -356,7 +407,7 @@ echo ""
 echo "--- Backend ---"
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
-    if kill -0 "$PID" 2>/dev/null; then
+    if is_phonepilot_process "$PID"; then
         echo "  Status: RUNNING (PID: $PID)"
     else
         echo "  Status: STOPPED (stale PID file)"
@@ -469,13 +520,10 @@ log_success "Sandbox directory:     $SANDBOX_DIR"
 log_success "Boot script:           $BOOT_DIR/phonepilot-start.sh"
 echo ""
 echo "Next steps:"
-echo "  1. Copy backend code to: $PHONEPILOT_DIR/backend/"
-echo "  2. Install dependencies:  source $VENV_DIR/bin/activate && pip install -r $PHONEPILOT_DIR/backend/requirements.txt"
-echo "  3. Start PhonePilot:      bash $PHONEPILOT_DIR/start.sh"
-echo "  4. Check status:          bash $PHONEPILOT_DIR/status.sh"
-echo "  5. Set up SSH password:   passwd"
-echo "  6. Start SSH:             sshd"
-echo "  7. Install Tailscale:     See docs/tailscale-setup.md"
+echo "  1. Start PhonePilot:      bash $PHONEPILOT_DIR/start.sh"
+echo "  2. Check status:          bash $PHONEPILOT_DIR/status.sh"
+echo "  3. Optional SSH:          pkg install openssh && passwd && sshd"
+echo "  4. Install Tailscale:     See docs/tailscale-setup.md"
 echo ""
 echo "Access from PC:"
 echo "  API:   http://<phone-ip>:8265"

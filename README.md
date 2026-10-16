@@ -60,9 +60,10 @@ PhonePilot is a unified platform for creating, executing, scheduling, monitoring
 
 ### Step 1: Set Up the Backend (on your phone in Termux)
 
+Copy or clone the **whole project** onto your phone so both `termux/setup.sh`
+and `backend/` are present. In Termux, change to the project directory and run:
+
 ```bash
-# Clone or copy the project to your phone
-# Then run the setup script:
 bash termux/setup.sh
 
 # Start PhonePilot
@@ -71,6 +72,10 @@ bash ~/phonepilot/start.sh
 # Verify it's running
 curl http://localhost:8265/health
 ```
+
+Setup copies the project's `backend/` into `~/phonepilot/backend/` and creates
+the start script at `~/phonepilot/start.sh`. SSH is optional; if OpenSSH is
+unavailable, the backend can still run and be reached over the network.
 
 ### Step 2: Set Up the PC Dashboard (on your Windows PC)
 
