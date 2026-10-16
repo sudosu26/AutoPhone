@@ -76,6 +76,9 @@ curl http://localhost:8265/health
 Setup copies the project's `backend/` into `~/phonepilot/backend/` and creates
 the start script at `~/phonepilot/start.sh`. SSH is optional; if OpenSSH is
 unavailable, the backend can still run and be reached over the network.
+On the first Termux setup, pip may need to compile `pydantic-core` with Rust.
+This can take a while on a phone; keep Termux open and wait for the build output
+to finish. If the command fails, rerun setup after fixing the pip/Rust error.
 
 ### Step 2: Set Up the PC Dashboard (on your Windows PC)
 

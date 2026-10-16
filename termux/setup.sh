@@ -120,8 +120,19 @@ fi
 
 # Activate and install dependencies
 log_info "Installing Python dependencies..."
-"$VENV_DIR/bin/python" -m pip install --upgrade pip setuptools wheel
-"$VENV_DIR/bin/python" -m pip install -r "$PHONEPILOT_DIR/backend/requirements.txt"
+if ! "$VENV_DIR/bin/python" -m pip install --upgrade --timeout 120 --retries 5 pip setuptools wheel; then
+    log_error "Could not upgrade Python packaging tools. Check your internet connection and rerun setup."
+    exit 1
+fi
+
+log_info "Installing backend packages. Termux may compile pydantic-core with Rust on the first install."
+log_info "This can take a while; detailed build output will appear below. Keep Termux open."
+if ! PIP_DISABLE_PIP_VERSION_CHECK=1 "$VENV_DIR/bin/python" -m pip install \
+    --verbose --timeout 120 --retries 5 \
+    -r "$PHONEPILOT_DIR/backend/requirements.txt"; then
+    log_error "Python dependency installation failed. Review the pip/Rust error above, fix it, then rerun setup."
+    exit 1
+fi
 log_success "Dependencies installed."
 
 # -----------------------------------------------------------
